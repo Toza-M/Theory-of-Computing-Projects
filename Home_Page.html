@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Page</title>
+  <link rel="stylesheet" href="Style_of_home_page.css">
+  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+<body>
+  <div class="wrapper">
+    <form action="">
+      <h1>Insert Regex</h1>
+      <div class="input-box">
+        <input type="text" id="regexInput" placeholder="Regex" required>
+      </div>
+      <a href="#" class="btn" onclick="goToPage('DFA.html')">Convert to DFA</a>
+      <a href="#" class="btn" onclick="goToPage('NFA.html')">Convert to NFA</a>
+      <script>
+      function goToPage(page) {
+        const regex = document.getElementById("regexInput").value;
+        if (!regex) {
+          alert("Please enter a regex");
+          return;
+        }
+        window.location.href = page + "?regex=" + encodeURIComponent(regex);
+      }
+      </script>
+    </form>
+  </div>
+</body>
+</html>
