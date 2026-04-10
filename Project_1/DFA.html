@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFA</title>
+
+  <link rel="stylesheet" href="Style_of_NFA.css">
+  <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/full.render.js"></script>
+
+  <style>
+    .input-box {
+      position: relative;
+      width: 100%;
+      height: 50px;
+      margin: 15px 0;
+    }
+    .input-box input {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.1);
+      border: none;
+      outline: none;
+      border: 2px solid rgba(255, 255, 255, .2);
+      border-radius: 40px;
+      font-size: 18px;
+      color: #fff;
+      padding: 0 25px;
+      letter-spacing: 1px;
+    }
+    .input-box input::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="wrapper" style="max-width:1200px;">
+    <h1>DFA Result</h1>
+
+    <div class="input-box">
+      <input type="text" id="newRegexInput" placeholder="Edit Regex (e.g., (a|b)*c)" required>
+    </div>
+
+    <a href="#" class="btn" onclick="updateRegex()">Update DFA</a>
+
+    <div class="result-box">
+        <p id="regexDisplay">Loading DFA...</p>
+        <p id="postfixDisplay"></p>
+    </div>
+  </div>
+
+  <div class="wrapper" style="max-width:1200px;">
+    <h1>DFA Graph</h1>
+
+    <div class="result-box">
+        <div id="graphContainer"></div>
+    </div>
+
+    <a href="#" class="btn" onclick="goToPage('NFA.html')">Back to NFA</a>
+  </div>
+
+  <script>
+    window.renderGraph = function(dot) {
+        const container = document.getElementById("graphContainer");
+        container.innerHTML = "Rendering graph...";
+        const viz = new Viz();
+
+        viz.renderSVGElement(dot).then(svg => {
+            container.innerHTML = "";
+            svg.style.width = "100%";
+            svg.style.height = "auto";
+            container.appendChild(svg);
+        }).catch(e => {
+            container.innerHTML = "Graph render error";
+            console.error(e);
+        });
+    };
+
+    // Pre-fill input
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentRegex = urlParams.get('regex');
+        if (currentRegex) {
+            document.getElementById("newRegexInput").value = currentRegex;
+        }
+    };
+
+    function updateRegex() {
+        const regex = document.getElementById("newRegexInput").value;
+        if (!regex) {
+            alert("Please enter a regex");
+            return;
+        }
+        window.location.href = "DFA.html?regex=" + encodeURIComponent(regex);
+    }
+
+    function goToPage(page) {
+        const regex = document.getElementById("newRegexInput").value;
+        window.location.href = page + "?regex=" + encodeURIComponent(regex);
+    }
+  </script>
+
+  <py-script>
+from js import document, window, decodeURIComponent
+
+# ================= NFA =================
+
+class State:
+    def __init__(self, state_id):
+        self.state_id = state_id
+        self.transitions = {}
+
+    def add_transition(self, symbol, state):
+        if symbol not in self.transitions:
+            self.transitions[symbol] = []
+        self.transitions[symbol].append(state)
+
+class NFA:
+    def __init__(self, start_state, accept_state):
+        self.start = start_state
+        self.accept = accept_state
+
+class StateGenerator:
+    def __init__(self):
+        self.counter = 0
+
+    def get_new_state(self):
+        state_name = f"q{self.counter}"
+        self.counter += 1
+        return State(state_name)
+
+state_gen = StateGenerator()
+
+def create_literal_nfa(symbol):
+    s = state_gen.get_new_state()
+    a = state_gen.get_new_state()
+    s.add_transition(symbol, a)
+    return NFA(s, a)
+
+def concatenate_nfa(n1, n2):
+    n1.accept.add_transition('ε', n2.start)
+    return NFA(n1.start, n2.accept)
+
+def union_nfas(n1, n2):
+    s = state_gen.get_new_state()
+    a = state_gen.get_new_state()
+    s.add_transition('ε', n1.start)
+    s.add_transition('ε', n2.start)
+    n1.accept.add_transition('ε', a)
+    n2.accept.add_transition('ε', a)
+    return NFA(s, a)
+
+def kleene_star_nfa(n):
+    s = state_gen.get_new_state()
+    a = state_gen.get_new_state()
+    s.add_transition('ε', a)
+    s.add_transition('ε', n.start)
+    n.accept.add_transition('ε', n.start)
+    n.accept.add_transition('ε', a)
+    return NFA(s, a)
+
+def add_explicit_concat(r):
+    res = []
+    ops = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ε')
+    for i in range(len(r)):
+        res.append(r[i])
+        if i+1 < len(r):
+            c1, c2 = r[i], r[i+1]
+            if (c1 in ops or c1=='*' or c1==')') and (c2 in ops or c2=='('):
+                res.append('.')
+    return "".join(res)
+
+def infix_to_postfix(r):
+    prec = {'*':3,'.':2,'|':1,'(':0}
+    out, stack = [], []
+    r = add_explicit_concat(r)
+    for c in r:
+        if c.isalnum() or c=='ε':
+            out.append(c)
+        elif c=='(':
+            stack.append(c)
+        elif c==')':
+            while stack[-1] != '(':
+                out.append(stack.pop())
+            stack.pop()
+        else:
+            while stack and prec.get(stack[-1],0) >= prec.get(c,0):
+                out.append(stack.pop())
+            stack.append(c)
+    while stack:
+        out.append(stack.pop())
+    return "".join(out)
+
+def evaluate_postfix(p):
+    stack=[]
+    for c in p:
+        if c=='*': stack.append(kleene_star_nfa(stack.pop()))
+        elif c=='.': 
+            b,a=stack.pop(),stack.pop()
+            stack.append(concatenate_nfa(a,b))
+        elif c=='|':
+            b,a=stack.pop(),stack.pop()
+            stack.append(union_nfas(a,b))
+        else:
+            stack.append(create_literal_nfa(c))
+    return stack.pop()
+
+# ================= DFA =================
+
+class DFAState:
+    def __init__(self, nfa_states, id):
+        self.nfa_states=nfa_states
+        self.state_id=f"D{id}"
+        self.transitions={}
+        self.is_accept=False
+
+def epsilon_closure(states):
+    stack=list(states)
+    closure=set(states)
+    while stack:
+        s=stack.pop()
+        for n in s.transitions.get('ε',[]):
+            if n not in closure:
+                closure.add(n)
+                stack.append(n)
+    return closure
+
+def move(states,sym):
+    res=set()
+    for s in states:
+        res.update(s.transitions.get(sym,[]))
+    return res
+
+def get_alphabet(start):
+    vis=set(); stack=[start]; alpha=set()
+    while stack:
+        s=stack.pop()
+        if s in vis: continue
+        vis.add(s)
+        for sym,nxt in s.transitions.items():
+            if sym!='ε': alpha.add(sym)
+            for n in nxt: stack.append(n)
+    return alpha
+
+def nfa_to_dfa(nfa):
+    alpha=get_alphabet(nfa.start)
+    start=frozenset(epsilon_closure({nfa.start}))
+    states={start:DFAState(start,0)}
+    queue=[states[start]]
+    counter=1
+
+    if nfa.accept in start:
+        states[start].is_accept=True
+
+    while queue:
+        cur=queue.pop(0)
+        for sym in alpha:
+            nxt=frozenset(epsilon_closure(move(cur.nfa_states,sym)))
+            if not nxt: continue
+            if nxt not in states:
+                states[nxt]=DFAState(nxt,counter)
+                if nfa.accept in nxt:
+                    states[nxt].is_accept=True
+                queue.append(states[nxt])
+                counter+=1
+            cur.transitions[sym]=states[nxt]
+
+    return list(states.values())
+
+def generate_dfa_dot(states):
+    dot='digraph DFA { rankdir=LR;\n'
+    for s in states:
+        shape="doublecircle" if s.is_accept else "circle"
+        dot+=f'{s.state_id} [shape={shape}];\n'
+    for s in states:
+        for sym,n in s.transitions.items():
+            dot+=f'{s.state_id}->{n.state_id}[label="{sym}"];\n'
+    dot+='}'
+    return dot
+
+def compile_regex_to_dfa(r):
+    state_gen.counter=0
+    postfix=infix_to_postfix(r)
+    nfa=evaluate_postfix(postfix)
+    dfa=nfa_to_dfa(nfa)
+    return {"postfix":postfix,"graph":generate_dfa_dot(dfa)}
+
+# ================= MAIN =================
+
+url_params = str(window.location.search)
+
+if "?regex=" in url_params:
+ regex_encoded = url_params.split("regex=")[1].split("&")[0]
+ regex = decodeURIComponent(regex_encoded)
+
+ result = compile_regex_to_dfa(regex)
+
+ document.getElementById("regexDisplay").innerHTML = "<strong>Regex:</strong> " + regex
+ document.getElementById("postfixDisplay").innerHTML = "<strong>Postfix:</strong> " + result['postfix']
+
+ window.renderGraph(result['graph'])
+else:
+ document.getElementById("regexDisplay").innerHTML = "No regex (?regex= required)"
+  </py-script>
+
+</body>
+</html>
