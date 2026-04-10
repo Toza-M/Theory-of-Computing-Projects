@@ -10,15 +10,48 @@
   <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/full.render.js"></script>
+
+  <style>
+    .input-box {
+      position: relative;
+      width: 100%;
+      height: 50px;
+      margin: 15px 0;
+    }
+    .input-box input {
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.1);
+      border: none;
+      outline: none;
+      border: 2px solid rgba(255, 255, 255, .2);
+      border-radius: 40px;
+      font-size: 18px;
+      color: #fff;
+      padding: 0 25px;
+      letter-spacing: 1px;
+    }
+    .input-box input::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+  </style>
 </head>
 <body>
+  
   <div class="wrapper" style="max-width:1200px;">
     <h1>NFA Result</h1>
+    
+    <div class="input-box">
+      <input type="text" id="newRegexInput" placeholder="Edit Regex (e.g., (a|b)*c)" required>
+    </div>
+    <a href="#" class="btn" onclick="updateRegex()">Update NFA</a>
+
     <div class="result-box">
         <p id="regexDisplay">Loading NFA...</p>
         <p id="postfixDisplay"></p>
     </div>
   </div>
+
   <div class="wrapper" style="max-width:1200px;">
     <h1>NFA Graph</h1>
     <div class="result-box">
@@ -27,7 +60,6 @@
     <a href="#" class="btn" onclick="goToPage('DFA.html')">Convert to DFA</a>
   </div>
 
-  <!-- Global JS function to render Viz.js graph -->
   <script>
     window.renderNfaGraph = function(dot) {
         const container = document.getElementById("graphContainer");
@@ -43,23 +75,45 @@
             console.error(e);
         });
     };
+
+    // Pre-fill the input box with the current regex from the URL
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentRegex = urlParams.get('regex');
+        if (currentRegex) {
+            document.getElementById("newRegexInput").value = currentRegex;
+        }
+    };
+
+    // Reload the page with the newly typed regex
+    function updateRegex() {
+        const regex = document.getElementById("newRegexInput").value;
+        if (!regex) {
+            alert("Please enter a regex");
+            return;
+        }
+        window.location.href = "NFA.html?regex=" + encodeURIComponent(regex);
+    }
+
+    // Route to DFA page
+    function goToPage(page) {
+        const regex = document.getElementById("newRegexInput").value;
+        window.location.href = page + "?regex=" + encodeURIComponent(regex);
+    }
   </script>
 
-  <!-- Inline PyScript: NFA logic + rendering -->
   <py-script>
 from js import document, window, decodeURIComponent
 
 class State:
     def __init__(self, state_id):
         self.state_id = state_id
-        # This Dict For Save Which State Can Go To With Which Symbol
         self.transitions = {} 
 
     def add_transition(self, symbol, state):
         if symbol not in self.transitions:
             self.transitions[symbol] = []
         self.transitions[symbol].append(state)
-
 
 class NFA:
     def __init__(self, start_state, accept_state):
@@ -73,66 +127,40 @@ class StateGenerator:
     def get_new_state(self):
         state_name = f"q{self.counter}"
         self.counter += 1
-        
         return State(state_name)
 
 state_gen = StateGenerator()
 
 def create_literal_nfa(symbol):
-    # For a Single Symbol
     start = state_gen.get_new_state()
     accept = state_gen.get_new_state()
     start.add_transition(symbol, accept)
-    
     return NFA(start, accept)
 
-
 def concatenate_nfa(nfa1, nfa2):
-    # To Concatenate More Than One Nfa
     nfa1.accept.add_transition('ε', nfa2.start)
-    
     return NFA(nfa1.start, nfa2.accept)
 
-
 def union_nfas(nfa1, nfa2):
-    # To Union More Than One NFA
     new_start = state_gen.get_new_state()
     new_accept = state_gen.get_new_state()
-    
-    # Branch From New Start State To Both NFAs
     new_start.add_transition('ε', nfa1.start)
     new_start.add_transition('ε', nfa2.start)
-    
-    # Merge Accept States Into One
     nfa1.accept.add_transition('ε', new_accept)
     nfa2.accept.add_transition('ε', new_accept)
-    
     return NFA(new_start, new_accept)
 
-
 def kleene_star_nfa(nfa):
-    # To Apply Star Operation
     new_start = state_gen.get_new_state()
     new_accept = state_gen.get_new_state()
-    
-    # Zero Condition
     new_start.add_transition('ε', new_accept)
-    
-    # Initialize The Start State
     new_start.add_transition('ε', nfa.start)
-    
-    # Go Back To The Start State
     nfa.accept.add_transition('ε', nfa.start)
-    
-    # Accept State
     nfa.accept.add_transition('ε', new_accept)
-    
     return NFA(new_start, new_accept)
 
 def add_explicit_concat(regex):
-    # Add Concatitnation Operator '.'
     new_regex = []
-    # Lang Contain Letters, Nums, Epsilon
     operands = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ε')
     
     for i in range(len(regex)):
@@ -143,11 +171,9 @@ def add_explicit_concat(regex):
             if (char1 in operands or char1 == '*' or char1 == ')') and \
                (char2 in operands or char2 == '('):
                 new_regex.append('.')
-                
     return "".join(new_regex)
 
 def infix_to_postfix(regex):
-    # Convert Invfix To Postfix Using Shunting Yard Algorithm
     precedence = {'*': 3, '.': 2, '|': 1, '(': 0}
     output = []
     operator_stack = []
@@ -163,37 +189,32 @@ def infix_to_postfix(regex):
             while operator_stack and operator_stack[-1] != '(':
                 output.append(operator_stack.pop())
             if operator_stack:
-                operator_stack.pop() # Remove The '('
-        else: # Operator (*, ., |)
+                operator_stack.pop() 
+        else: 
             while operator_stack and precedence.get(operator_stack[-1], 0) >= precedence.get(char, 0):
                 output.append(operator_stack.pop())
             operator_stack.append(char)
             
     while operator_stack:
         output.append(operator_stack.pop())
-        
     return "".join(output)
 
-
 def evaluate_postfix(postfix):
-    # Evaluate The Postfix To Build NFA
     stack = []
     for char in postfix:
         if char == '*':
             nfa = stack.pop()
             stack.append(kleene_star_nfa(nfa))
         elif char == '.':
-            nfa2 = stack.pop() # Right side
-            nfa1 = stack.pop() # Left side
+            nfa2 = stack.pop() 
+            nfa1 = stack.pop() 
             stack.append(concatenate_nfa(nfa1, nfa2))
         elif char == '|':
-            nfa2 = stack.pop() # Right side
-            nfa1 = stack.pop() # Left side
+            nfa2 = stack.pop() 
+            nfa1 = stack.pop() 
             stack.append(union_nfas(nfa1, nfa2))
         else:
-            # It Is Standard Character Or Epsilon
             stack.append(create_literal_nfa(char))
-            
     return stack.pop()
 
 def get_nfa_info(nfa):
@@ -206,15 +227,12 @@ def get_nfa_info(nfa):
             for t in targets: visit(t)
     
     visit(nfa.start)
-    visit(nfa.accept)  # Ensure accept state is included
+    visit(nfa.accept)  
     
-    # Convert to state_ids for output
     state_ids = sorted([s.state_id for s in states], key=lambda x: int(x[1:]))
-    
     transitions = {}
     symbols = ['ε'] + sorted(alphabet)
     for state_id in state_ids:
-        # Find the actual State object
         state_obj = next(s for s in states if s.state_id == state_id)
         transitions[state_id] = {
             sym: [t.state_id for t in state_obj.transitions.get(sym, [])]
@@ -241,8 +259,8 @@ def generate_dot(nfa):
         else:
             dot += f'  s{i} [shape=circle, fillcolor=lightblue, label="{state_id}"];\n'
     
-    symbols = ['ε'] + info['alphabet']  # Consistent with get_nfa_info
-    for state_id in info['states']:  # Use info['states'] (state_ids)
+    symbols = ['ε'] + info['alphabet'] 
+    for state_id in info['states']:  
         i1 = info['states'].index(state_id)
         for sym in symbols:
             for next_id in info['transitions'][state_id].get(sym, []):
@@ -261,7 +279,7 @@ def compile_regex_to_nfa(regex_string):
     nfa = evaluate_postfix(postfix)
     return {'postfix': postfix,'graph': generate_dot(nfa)}
 
-#main script
+# Main Script
 url_params = str(window.location.search)
 if "?regex=" in url_params:
     regex_encoded = url_params.split("regex=")[1].split("&")[0]
