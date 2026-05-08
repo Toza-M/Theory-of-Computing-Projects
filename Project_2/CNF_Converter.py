@@ -1,5 +1,5 @@
 """
-CFG to CNF Converter -- Pure Python (no external libraries).
+CFG to CNF Converter.
 
 Input:  A Python dict representing a Context-Free Grammar.
         Non-terminals are SINGLE uppercase letters; terminals are single lowercase letters.
@@ -112,6 +112,23 @@ def export_grammar(grammar):
     for nt in sorted(grammar.keys()):
         result[nt] = [list(body) for body in grammar[nt]]
     return result
+
+
+def _deduplicate(grammar):
+    """
+    Remove duplicate productions for every non-terminal.
+    Preserves first-occurrence order.
+    """
+    deduped = {}
+    for nt, prods in grammar.items():
+        seen = set()
+        unique = []
+        for body in prods:
+            if body not in seen:
+                seen.add(body)
+                unique.append(body)
+        deduped[nt] = unique
+    return deduped
 
 
 # ------------------------------------------------------------------
@@ -360,12 +377,25 @@ def step6_break_long(grammar):
       ...
       Z_{n-3} -> B_{n-2} Z_{n-2}
       Z_{n-2} -> B_{n-1} Bn
+
+    Uses a reverse-mapping (pair_map) so that if the same pair of symbols
+    has already been assigned a helper variable, it is reused instead of
+    creating a duplicate.
     """
     counter = [0]       # mutable counter in a list for closure access
 
-    def fresh():
+    # Maps a (sym1, sym2) pair -> the Z variable already assigned to it.
+    pair_map = {}
+
+    def get_or_create(pair, new_grammar):
+        """Return an existing Z for `pair`, or create a fresh one."""
+        if pair in pair_map:
+            return pair_map[pair]
         counter[0] += 1
-        return f"Z{counter[0]}"
+        name = f"Z{counter[0]}"
+        pair_map[pair] = name
+        new_grammar[name] = [pair]
+        return name
 
     new_grammar = {}
     for nt, prods in grammar.items():
@@ -374,18 +404,21 @@ def step6_break_long(grammar):
             if len(body) <= 2:
                 new_prods.append(body)
             else:
-                # Build chain from right to left for clarity
-                # Last pair first
+                # Build the chain from right to left.
                 symbols = list(body)
-                prev = fresh()
-                new_grammar[prev] = [(symbols[-2], symbols[-1])]
-                # Middle pairs
+
+                # Start with the last pair
+                last_pair = (symbols[-2], symbols[-1])
+                prev = get_or_create(last_pair, new_grammar)
+
+                # Middle pairs (if any)
                 for i in range(len(symbols) - 3, 0, -1):
-                    cur = fresh()
-                    new_grammar[cur] = [(symbols[i], prev)]
-                    prev = cur
-                # First symbol paired with the chain start
+                    mid_pair = (symbols[i], prev)
+                    prev = get_or_create(mid_pair, new_grammar)
+
+                # First symbol paired with the chain variable
                 new_prods.append((symbols[0], prev))
+
         # Use setdefault so we don't overwrite chain NTs already inserted
         if nt in new_grammar:
             new_grammar[nt] = new_prods + new_grammar[nt]
@@ -460,31 +493,37 @@ def cfg_to_cnf(raw_grammar, start="S"):
 
     # Step 1: New start symbol
     grammar, start = step1_new_start(grammar, start)
+    grammar = _deduplicate(grammar)
     print("\n--- Step 1: Add new start symbol ---")
     print(format_grammar(grammar))
 
     # Step 2: Eliminate epsilon-productions
     grammar = step2_eliminate_epsilon(grammar, start)
+    grammar = _deduplicate(grammar)
     print("\n--- Step 2: Eliminate epsilon-productions ---")
     print(format_grammar(grammar))
 
     # Step 3: Eliminate unit productions
     grammar = step3_eliminate_unit(grammar)
+    grammar = _deduplicate(grammar)
     print("\n--- Step 3: Eliminate unit productions ---")
     print(format_grammar(grammar))
 
     # Step 4: Eliminate useless symbols
     grammar = step4_eliminate_useless(grammar, start)
+    grammar = _deduplicate(grammar)
     print("\n--- Step 4: Eliminate useless symbols ---")
     print(format_grammar(grammar))
 
     # Step 5: Replace terminals in mixed bodies
     grammar = step5_replace_terminals(grammar)
+    grammar = _deduplicate(grammar)
     print("\n--- Step 5: Replace terminals in mixed bodies ---")
     print(format_grammar(grammar))
 
     # Step 6: Break long bodies
     grammar = step6_break_long(grammar)
+    grammar = _deduplicate(grammar)
     print("\n--- Step 6: Break long bodies -- FINAL CNF ---")
     print(format_grammar(grammar))
 
