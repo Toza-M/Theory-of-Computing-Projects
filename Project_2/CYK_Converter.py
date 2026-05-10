@@ -175,6 +175,11 @@ def _fill_base_case(table, string, terminal_index):
     n = len(string)
     for i in range(n):
         char = string[i]
+        
+        # Valid terminals are restricted to lowercase letters and digits
+        if not (char.islower() or char.isdigit()):
+            continue
+            
         # Find all non-terminals A such that A -> char
         producers = terminal_index.get(char, set())
         for nt in producers:

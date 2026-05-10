@@ -75,8 +75,8 @@ def is_nonterminal(sym):
 
 
 def is_terminal(sym):
-    """A terminal is a single lowercase letter."""
-    return len(sym) == 1 and sym.islower()
+    """A terminal is a single lowercase letter, a digit, or 'e'."""
+    return len(sym) == 1 and (sym.islower() or sym.isdigit() or sym == 'e')
 
 
 def format_production(body_tuple):

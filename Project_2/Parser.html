@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Language Studio — CFG Parser</title>
+
+  <!-- ===== PyScript CDN (same version as Project 1) ===== -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+  <!-- ===== Viz.js CDN (same version as Project 1) ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/viz.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/viz.js@2.1.2/full.render.js"></script>
+
+  <!-- ===== Google Fonts: Poppins (same as Project 1) ===== -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       CSS — Replicating the Project 1 frosted-glass aesthetic
+       ============================================================ */
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: url('Background.jpg') no-repeat;
+      background-size: cover;
+      background-position: center;
+      gap: 30px;
+      padding: 30px 15px;
+    }
+
+    /* ── Frosted-glass wrapper (identical to Project 1) ── */
+    .wrapper {
+      width: 90%;
+      max-width: 1200px;
+      background: transparent;
+      margin-top: 20px;
+      border: 2px solid rgba(255, 255, 255, .2);
+      backdrop-filter: blur(9px);
+      color: #fff;
+      border-radius: 12px;
+      padding: 30px 40px;
+    }
+
+    .wrapper h1 {
+      font-size: 36px;
+      text-align: center;
+    }
+
+    .wrapper h1 span {
+      font-size: 16px;
+      font-weight: 300;
+      display: block;
+      margin-top: 5px;
+      opacity: 0.7;
+    }
+
+    /* ── Input boxes (same styling as Project 1) ── */
+    .input-box {
+      position: relative;
+      width: 100%;
+      margin: 15px 0;
+    }
+
+    .input-box label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+      opacity: 0.8;
+      letter-spacing: 0.5px;
+    }
+
+    .input-box input {
+      width: 100%;
+      height: 50px;
+      background: rgba(0, 0, 0, 0.1);
+      border: none;
+      outline: none;
+      border: 2px solid rgba(255, 255, 255, .2);
+      border-radius: 40px;
+      font-size: 18px;
+      color: #fff;
+      padding: 0 25px;
+      letter-spacing: 1px;
+      font-family: "Poppins", monospace;
+    }
+
+    .input-box input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .input-box textarea {
+      width: 100%;
+      min-height: 140px;
+      background: rgba(0, 0, 0, 0.1);
+      border: 2px solid rgba(255, 255, 255, .2);
+      border-radius: 14px;
+      font-size: 16px;
+      color: #fff;
+      padding: 15px 20px;
+      letter-spacing: 0.5px;
+      font-family: "Poppins", monospace;
+      line-height: 1.7;
+      outline: none;
+      resize: vertical;
+    }
+
+    .input-box textarea::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* ── Button (identical to Project 1) ── */
+    .btn {
+      width: 100%;
+      height: 45px;
+      background: #fff;
+      border: none;
+      outline: none;
+      border-radius: 40px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+      cursor: pointer;
+      font-size: 16px;
+      color: #333;
+      font-weight: 600;
+      margin-bottom: 10px;
+      margin-top: 10px;
+      display: block;
+      text-align: center;
+      text-decoration: none;
+      line-height: 45px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    /* ── Result / status boxes (identical to Project 1) ── */
+    .result-box {
+      margin-top: 25px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .result-box p {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 18px;
+      text-align: center;
+      backdrop-filter: blur(5px);
+      letter-spacing: 1px;
+    }
+
+    .result-box p.accepted {
+      border-color: rgba(50, 205, 50, 0.5);
+      color: #7dff7d;
+    }
+
+    .result-box p.rejected {
+      border-color: rgba(255, 80, 80, 0.5);
+      color: #ff7d7d;
+    }
+
+    /* ── Graph container ── */
+    #graphContainer {
+      width: 100%;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #graphContainer svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .placeholder-text {
+      opacity: 0.4;
+      font-size: 15px;
+      text-align: center;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      opacity: 0.4;
+      font-size: 13px;
+      color: #fff;
+      margin-top: 10px;
+      padding-bottom: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       SECTION 1:  Grammar Input
+       ============================================================ -->
+  <div class="wrapper" style="max-width:1200px;">
+    <h1>The Language Studio <span>Context-Free Grammar Parser &amp; Parse Tree Visualizer</span></h1>
+
+    <div class="input-box">
+      <label>CFG Production Rules (one rule per line, use &rarr; or -&gt;)</label>
+      <textarea
+        id="grammarInput"
+        placeholder="S -> aSb | e&#10;A -> aAS | a&#10;B -> SbS | A | bb"
+        spellcheck="false"
+      >S -> aSb | e</textarea>
+    </div>
+
+    <div class="input-box">
+      <label>Test String</label>
+      <input type="text" id="testString" placeholder="e.g.  aabb" value="aabb" spellcheck="false" autocomplete="off">
+    </div>
+
+    <a href="#" class="btn" id="btnGenerate" onclick="onGenerateClick(); return false;">Generate Parse Tree</a>
+
+    <div class="result-box">
+      <p id="statusDisplay" style="display:none;">Ready</p>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SECTION 2:  Parse Tree Graph
+       ============================================================ -->
+  <div class="wrapper" style="max-width:1200px;">
+    <h1>Parse Tree</h1>
+    <div class="result-box">
+      <div id="graphContainer">
+        <p class="placeholder-text">Your parse tree will appear here after clicking "Generate".</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">The Language Studio &mdash; Theory of Computing Project &copy; 2026</div>
+
+
+  <!-- ============================================================
+       JAVASCRIPT:  Viz.js Rendering + DOT Generation
+       ============================================================ -->
+  <script>
+    /**
+     * renderParseTree(treeData)
+     *
+     * Takes a nested parse-tree dictionary (from Python CYK parser)
+     * and converts it into a DOT language string, then renders it
+     * as an SVG via Viz.js and appends it to #graphContainer.
+     *
+     * Tree format:
+     *   {"S": [{"A": "a"}, {"B": "b"}]}   (binary branch)
+     *   {"A": "a"}                          (terminal leaf)
+     */
+    window.renderParseTree = function(treeData) {
+      // Accept JSON string or object
+      if (typeof treeData === "string") {
+        treeData = JSON.parse(treeData);
+      }
+
+      var nodeCounter = 0;
+      var lines = [];
+
+      // Recursively walk the nested dict and emit DOT nodes + edges
+      function walk(node) {
+        if (typeof node === "string") {
+          // Terminal leaf node
+          var id = "n" + nodeCounter++;
+          lines.push('  ' + id + ' [label="' + node + '", shape=rectangle, style="filled,rounded", fillcolor="#66e0a3", fontcolor="#1a1a2e", fontsize=14];');
+          return id;
+        }
+
+        if (typeof node === "object" && node !== null) {
+          var keys = Object.keys(node);
+          for (var k = 0; k < keys.length; k++) {
+            var symbol = keys[k];
+            var children = node[symbol];
+            var id = "n" + nodeCounter++;
+
+            // Non-terminal node
+            lines.push('  ' + id + ' [label="' + symbol + '", shape=circle, style=filled, fillcolor="lightblue", fontcolor="#1a1a2e", fontsize=14, width=0.55, height=0.55];');
+
+            if (typeof children === "string") {
+              // Single terminal child  e.g. {"A": "a"}
+              var childId = walk(children);
+              lines.push('  ' + id + ' -> ' + childId + ';');
+            } else if (Array.isArray(children)) {
+              // Binary children  e.g. {"S": [{...}, {...}]}
+              for (var c = 0; c < children.length; c++) {
+                var childId = walk(children[c]);
+                lines.push('  ' + id + ' -> ' + childId + ';');
+              }
+            }
+            return id;
+          }
+        }
+      }
+
+      walk(treeData);
+
+      var dot = [
+        "digraph ParseTree {",
+        "  rankdir=TB;",
+        "  bgcolor=transparent;",
+        '  node [fontname="Poppins"];',
+        '  edge [color="#cccccc", penwidth=1.5, arrowsize=0.7];',
+        lines.join("\n"),
+        "}"
+      ].join("\n");
+
+      // Render via Viz.js v2.1.2 (same API as Project 1)
+      var container = document.getElementById("graphContainer");
+      container.innerHTML = "Rendering graph...";
+      container.style.color = "rgba(255,255,255,0.5)";
+
+      var viz = new Viz();
+      viz.renderSVGElement(dot).then(function(svg) {
+        container.innerHTML = "";
+        svg.style.width = "100%";
+        svg.style.height = "auto";
+        container.appendChild(svg);
+      }).catch(function(err) {
+        container.innerHTML = "Graph render error: " + err.message;
+        console.error(err);
+      });
+    };
+
+
+    /**
+     * showStatus(message, type)
+     * Updates the status <p> element beneath the button.
+     * type: "loading" | "accepted" | "rejected" | "error"
+     */
+    window.showStatus = function(message, type) {
+      var el = document.getElementById("statusDisplay");
+      el.style.display = "block";
+      el.textContent = message;
+      el.className = "";                     // reset
+      if (type === "accepted")  el.classList.add("accepted");
+      if (type === "rejected")  el.classList.add("rejected");
+    };
+
+
+    /**
+     * onGenerateClick()
+     * Called when the user clicks "Generate Parse Tree".
+     * Delegates to the Python bridge registered by PyScript.
+     */
+    function onGenerateClick() {
+      window.showStatus("Running CFG → CNF → CYK pipeline …", "loading");
+
+      // Small delay so the status message renders before
+      // the synchronous Python execution blocks the UI thread
+      setTimeout(function() {
+        try {
+          if (typeof window.__pyBridge === "function") {
+            window.__pyBridge();
+          } else {
+            window.showStatus("Error: PyScript is still loading. Please wait a moment and try again.", "error");
+          }
+        } catch(e) {
+          window.showStatus("Error: " + e.message, "error");
+          console.error(e);
+        }
+      }, 100);
+    }
+  </script>
+
+
+  <!-- ============================================================
+       PYSCRIPT:  Python Bridge — reads DOM inputs, runs the
+       real CNF_Converter + CYK_Converter pipeline, and passes
+       the resulting parse tree to JS renderParseTree().
+       ============================================================ -->
+  <script type="py"
+    config='{"files":{
+      "./CNF_Converter.py": "CNF_Converter.py",
+      "./CYK_Converter.py": "CYK_Converter.py"
+    }}'>
+
+import json
+from js import document, window
+
+# ── Import our real Python backend modules ──
+from CNF_Converter import cfg_to_cnf
+from CYK_Converter import cyk_parse
+
+
+def parse_grammar_text(text):
+    """
+    Parse the user-typed grammar text into the raw dict format
+    expected by cfg_to_cnf().
+
+    Input format (one rule per line):
+        S -> aSb | e
+        A -> aAS | a
+
+    Output format:
+        {'S': ['aSb', 'e'], 'A': ['aAS', 'a']}
+
+    Also returns the start symbol (the first non-terminal seen).
+    """
+    grammar = {}
+    start_symbol = None
+
+    for line in text.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+
+        # Support both  ->  and  →  as arrow separators
+        if "->" in line:
+            parts = line.split("->", 1)
+        else:
+            continue   # skip lines without an arrow
+
+        lhs = parts[0].strip()
+        rhs = parts[1].strip()
+
+        # The first non-terminal encountered is the start symbol
+        if start_symbol is None:
+            start_symbol = lhs
+
+        # Split alternatives on  |
+        bodies = [body.strip() for body in rhs.split("|")]
+
+        if lhs in grammar:
+            grammar[lhs].extend(bodies)
+        else:
+            grammar[lhs] = bodies
+
+    return grammar, start_symbol or "S"
+
+
+def run_parser():
+    """
+    Main bridge function:
+      1. Read grammar text + test string from the HTML form.
+      2. Parse the grammar into a dict.
+      3. Convert CFG → CNF using CNF_Converter.
+      4. Run CYK parser using CYK_Converter.
+      5. Pass the nested parse tree to the JS visualizer.
+    """
+    # ── 1. Read inputs from the DOM ──
+    grammar_text = document.getElementById("grammarInput").value
+    test_string  = document.getElementById("testString").value.strip()
+
+    window.console.log(f"[PyScript] Grammar text:\n{grammar_text}")
+    window.console.log(f"[PyScript] Test string: '{test_string}'")
+
+    # ── 2. Parse the user-typed grammar ──
+    try:
+        raw_grammar, start = parse_grammar_text(grammar_text)
+    except Exception as e:
+        window.showStatus(f"Grammar parse error: {e}", "error")
+        return
+
+    if not raw_grammar:
+        window.showStatus("Error: No valid grammar rules found. Use the format: S -> aSb | e", "error")
+        return
+
+    window.console.log(f"[PyScript] Parsed grammar: {raw_grammar}")
+    window.console.log(f"[PyScript] Start symbol: {start}")
+
+    # ── 3. Convert CFG → CNF ──
+    try:
+        cnf_dict, cnf_start = cfg_to_cnf(raw_grammar, start=start)
+    except Exception as e:
+        window.showStatus(f"CNF conversion error: {e}", "error")
+        return
+
+    window.console.log(f"[PyScript] CNF grammar: {cnf_dict}")
+    window.console.log(f"[PyScript] CNF start: {cnf_start}")
+
+    # ── 4. Run CYK parser ──
+    try:
+        accepted, tree, all_trees = cyk_parse(
+            cnf_dict, test_string,
+            start_symbol=cnf_start, verbose=False
+        )
+    except Exception as e:
+        window.showStatus(f"CYK parsing error: {e}", "error")
+        return
+
+    # ── 5. Report result and render tree ──
+    if accepted and tree is not None:
+        num_trees = len(all_trees) if all_trees else 1
+        msg = f"ACCEPTED — string \"{test_string}\" is in the language."
+        if num_trees > 1:
+            msg += f"  ({num_trees} parse trees found — showing first)"
+        window.showStatus(msg, "accepted")
+
+        # Serialize tree to JSON and send to JS
+        tree_json = json.dumps(tree)
+        window.console.log(f"[PyScript] Tree JSON: {tree_json}")
+        window.renderParseTree(tree_json)
+    else:
+        window.showStatus(
+            f"REJECTED — string \"{test_string}\" is NOT in the language.",
+            "rejected"
+        )
+        # Clear the graph container
+        container = document.getElementById("graphContainer")
+        container.innerHTML = '<p class="placeholder-text">String rejected — no parse tree to display.</p>'
+
+
+# ── Register the bridge function on window so JS can call it ──
+window.__pyBridge = run_parser
+
+  </script>
+
+</body>
+</html>
