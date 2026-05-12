@@ -54,6 +54,44 @@ Because this project relies on **PyScript** to load Python environments in the b
 
 ---
 
+## 🌐 Overview of Project 2: The Language Studio — CFG Parser & Parse Tree Visualizer
+**Status:** Completed ✅
+ 
+Project 2 is a fully interactive, web-based tool that takes any Context-Free Grammar (CFG), converts it into Chomsky Normal Form (CNF), and determines whether a given string belongs to the language — visualizing the full parse tree in real-time.
+As with Project 1, all core algorithms were implemented from scratch in **pure Python** (no external libraries) and executed directly in the browser via **PyScript**.
+ 
+**Key Features:**
+* **CNF Conversion Pipeline:** A rigorous 6-step algorithm that normalizes any CFG into strict Chomsky Normal Form, handling epsilon-productions, unit productions, useless symbols, mixed bodies, and long productions.
+* **CYK Parser:** An O(n³ · |G|) dynamic programming parser that fills a triangular table of non-terminals and determines string membership.
+* **Parse Tree Backtracking:** Full reconstruction of one (or all) parse trees from CYK back-pointers, with ambiguity detection and reporting.
+* **Live Visualization:** The resulting parse tree is serialized to JSON, converted to DOT language, and rendered as an interactive SVG graph via Viz.js.
+---
+ 
+## 💻 Tech Stack
+* **Backend Logic:** Pure Python 3 (Object-Oriented Data Structures)
+* **Web Integration:** PyScript (Python in HTML)
+* **Frontend UI:** HTML5, CSS3, Vanilla JS
+* **Graph Rendering:** Viz.js (DOT Language)
+---
+ 
+## 🛠️ How to Run
+ 
+Because these projects rely on **PyScript** to load Python environments in the browser, modern web browsers will block the scripts if you simply double-click the HTML files (due to CORS security policies). **You must serve the files through a local web server.**
+ 
+**Method 1: Using VS Code**
+1. Open this repository folder in Visual Studio Code.
+2. Install the **Live Server** extension by Ritwick Dey.
+3. Navigate to the desired project's HTML file (e.g., `Project_1/Home_Page.html` or `Project_2/index.html`).
+4. Right-click the file and select **Open with Live Server**. Your default browser will open automatically.
+**Method 2: Using Python's Built-in Server**
+1. Open your terminal or command prompt.
+2. Navigate to the desired project's directory (e.g., `Project_1` or `Project_2`).
+3. Run the following command: `python -m http.server 8000`
+4. Open your web browser and navigate to the appropriate URL:
+   * Project 1: `http://localhost:8000/Home_Page.html`
+   * Project 2: `http://localhost:8000/index.html`
+---
+
 ## 📂 Repository Structure
 
 Because this repository houses multiple coursework projects, it is organized into dedicated directories:
@@ -73,5 +111,11 @@ Theory-of-Computing-Projects/
 │   ├── Style_of_home_page.css# Home Page Styling
 │   └── Background.jpg        # Shared background asset
 │
-├── Project_2/                # 🚧 Coming Soon
-└── Project_3/                # 🚧 Coming Soon
+├── Project_2/                    # CFG Parser & Parse Tree Visualizer
+│   ├── index.html                # Main application (UI + JS + PyScript bridge)
+│   ├── CNF_Converter.py          # CFG → CNF conversion pipeline (6-step algorithm)
+│   ├── CYK_Converter.py          # CYK parser with parse-tree backtracking
+│   └── Background.jpg            # Shared background asset
+│
+└── Project_3/                    # 🚧 Coming Soon
+```
